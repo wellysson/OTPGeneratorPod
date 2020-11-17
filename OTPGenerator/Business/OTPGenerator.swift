@@ -36,7 +36,7 @@ public class OTPGenerator {
 
 //Services
 extension OTPGenerator {
-    public func startActivation(completion: ((_ secretDecript: String?) -> Void)?) {
+    public func startActivation(forceRegister: Bool = false, completion: ((_ registerSuccess: Bool) -> Void)?) {
         let customer = Customer()
         customer.customer_id = self.userId
         customer.device_id = self.device_id
@@ -47,35 +47,29 @@ extension OTPGenerator {
         customer.registration?.os_version = self.os_version
         customer.registration?.app_version = self.app_version
         
-        RegistrationService.registrationStart(customer: customer, completion: { [weak self, completion] baseResponse in
-            guard let self = self else {
-                return
-            }
-            let secret = baseResponse.secret ?? ""
-
-            if let secretDecript = self.getDecrypt(base64Encoded: secret) {
-                self.createToken(secret: secretDecript)
-                if let token = self.token {
-
-                    self.finishActivation(token: token, completion: { [completion] isValid in
-                        if isValid {
-                            completion?(secretDecript)
-                        } else {
-                            completion?(nil)
-                        }
-                    })
+        let otpRegisterKey: String = "OTP_KEY_\(self.userId)"
+        
+        if forceRegister == false, let otpKey: String = PreferencesManager.getObject(otpRegisterKey) {
+            self.createToken(secret: otpKey)
+            completion?(true)
+        } else {
+            RegistrationService.registrationStart(customer: customer, completion: { [weak self, completion, otpRegisterKey] baseResponse in
+                guard let self = self else {
+                    return
                 }
-            }
-        })
-    }
-    
-    func finishActivation(token: Token, completion: ((_ isValid: Bool) -> Void)?) {
-        RegistrationService.registrationFinish(userId: self.userId, device_id: self.device_id, otp: token.currentPassword ?? "", completion: { [completion] baseResponse in
-            
-            let isValid = baseResponse.status?.lowercased() == "ok"
-            
-            completion?(isValid)
-        })
+                let secret = baseResponse.secret ?? ""
+
+                if let secretDecript = self.getDecrypt(base64Encoded: secret) {
+                    self.createToken(secret: secretDecript)
+                    PreferencesManager.saveObject(otpRegisterKey, value: secretDecript)
+                    if let token = self.token {
+                        self.finishActivation(token: token, completion: { [completion] isValid in
+                            completion?(isValid)
+                        })
+                    }
+                }
+            })
+        }
     }
     
     public func validation(otp: String, onValidate: ((_ isValid: Bool) -> Void)?) {
@@ -93,10 +87,19 @@ extension OTPGenerator {
             completion?(isOn)
         })
     }
+    
+    func finishActivation(token: Token, completion: ((_ isValid: Bool) -> Void)?) {
+        RegistrationService.registrationFinish(userId: self.userId, device_id: self.device_id, otp: token.currentPassword ?? "", completion: { [completion] baseResponse in
+            
+            let isValid = baseResponse.status?.lowercased() == "ok"
+            
+            completion?(isValid)
+        })
+    }
 }
 
 extension OTPGenerator {
-    public func createToken(secret: String) {
+    func createToken(secret: String) {
         //TODO: Definir valores
         let name = self.os_name
         let issuer = self.device_id
