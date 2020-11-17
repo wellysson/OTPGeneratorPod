@@ -100,7 +100,6 @@ extension OTPGenerator {
 
 extension OTPGenerator {
     func createToken(secret: String) {
-        //TODO: Definir valores
         let name = self.os_name
         let issuer = self.device_id
         let secretString = secret
