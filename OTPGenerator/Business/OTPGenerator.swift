@@ -23,7 +23,7 @@ public class OTPGenerator {
     var token: Token?
 
 
-    public init(userId: String, device_id: String, public_key: String ,private_Key: String, os_name: String, os_version: String, app_version: String) {
+    public init(urlServiceBase: String? = nil, userId: String, device_id: String, public_key: String ,private_Key: String, os_name: String, os_version: String, app_version: String) {
         self.userId = userId
         self.device_id = device_id
         self.public_key = public_key
@@ -31,6 +31,10 @@ public class OTPGenerator {
         self.os_name = os_name
         self.os_version = os_version
         self.app_version = app_version
+        
+        if let urlBase = urlServiceBase {
+            RegistrationService.urlBase = urlBase
+        }
     }
 }
 
